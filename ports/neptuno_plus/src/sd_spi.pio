@@ -1,0 +1,42 @@
+; SPI master, mode 0 (CPOL=0, CPHA=0), 8-bit frames, MSB first.
+; Based on the spi_cpha0 program from pico-examples (BSD-3-Clause).
+;
+; - SCK  is side-set pin 0
+; - MOSI is OUT pin 0
+; - MISO is IN pin 0
+;
+; Autopull and autopush at 8 bits, shifting left. The state machine stalls on
+; the OUT with SCK low while the TX FIFO is empty, so the bus idles low.
+; Four PIO cycles per bit: SCK = clk_sys / (4 * clkdiv).
+
+.program sd_spi
+.side_set 1
+    out pins, 1 side 0 [1]
+    in  pins, 1 side 1 [1]
+
+% c-sdk {
+static inline void sd_spi_program_init(PIO pio, uint sm, uint offset, float clkdiv,
+        uint pin_sck, uint pin_mosi, uint pin_miso) {
+    pio_sm_config c = sd_spi_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, pin_mosi, 1);
+    sm_config_set_in_pins(&c, pin_miso);
+    sm_config_set_sideset_pins(&c, pin_sck);
+    sm_config_set_out_shift(&c, false, true, 8);
+    sm_config_set_in_shift(&c, false, true, 8);
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    pio_sm_set_pins_with_mask(pio, sm, 0, (1u << pin_sck) | (1u << pin_mosi));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin_sck) | (1u << pin_mosi),
+        (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+    pio_gpio_init(pio, pin_mosi);
+    pio_gpio_init(pio, pin_miso);
+    pio_gpio_init(pio, pin_sck);
+
+    // SPI is synchronous: bypass the input synchroniser on MISO so the sample
+    // point is not pushed two cycles late at high SCK rates.
+    hw_set_bits(&pio->input_sync_bypass, 1u << pin_miso);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

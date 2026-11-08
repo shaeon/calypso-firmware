@@ -1,0 +1,42 @@
+; Reader for the Neptuno joystick shift register chain (74HC165 style).
+;
+; - side-set pin 0: LOAD (active low parallel load)
+; - side-set pin 1: SCK  (shift on the rising edge)
+; - IN pin 0:       DATA
+;
+; One frame of 24 bits per word written to the TX FIFO. Autopush at 24 bits,
+; shifting right, so the frame lands in bits 8..31 of the RX word: the same
+; layout ZXMicroJack's jammadb9 program produces, so the decoding is shared.
+
+.program joy_sr
+.side_set 2
+.wrap_target
+    pull block          side 1      ; idle: LOAD high, SCK low, wait for a request
+    set x, 23           side 0 [3]  ; LOAD low: latch the inputs
+    nop                 side 1 [3]  ; LOAD high: first bit is on DATA
+bitloop:
+    in pins, 1          side 1 [1]  ; sample with SCK low
+    jmp x-- bitloop     side 3 [1]  ; SCK rising edge brings the next bit
+.wrap
+
+% c-sdk {
+static inline void joy_sr_program_init(PIO pio, uint sm, uint offset, float clkdiv,
+        uint pin_load, uint pin_data) {
+    pio_sm_config c = joy_sr_program_get_default_config(offset);
+    sm_config_set_sideset_pins(&c, pin_load);
+    sm_config_set_in_pins(&c, pin_data);
+    sm_config_set_in_shift(&c, true, true, 24);
+    sm_config_set_clkdiv(&c, clkdiv);
+
+    // LOAD high, SCK low before the state machine takes the pins
+    pio_sm_set_pins_with_mask(pio, sm, 1u << pin_load, 3u << pin_load);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_load, 2, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, pin_data, 1, false);
+    pio_gpio_init(pio, pin_load);
+    pio_gpio_init(pio, pin_load + 1);
+    pio_gpio_init(pio, pin_data);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

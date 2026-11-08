@@ -1,0 +1,28 @@
+; 8N1 UART transmitter, from pico-examples (BSD-3-Clause).
+; One bit every 8 PIO cycles: clkdiv = clk_sys / (8 * baud).
+
+.program pio_uart_tx
+.side_set 1 opt
+    pull       side 1 [7]  ; idle high, stop bit
+    set x, 7   side 0 [7]  ; start bit
+bitloop:
+    out pins, 1
+    jmp x-- bitloop   [6]
+
+% c-sdk {
+#include "hardware/clocks.h"
+static inline void pio_uart_tx_program_init(PIO pio, uint sm, uint offset, uint pin_tx, uint baud) {
+    pio_sm_set_pins_with_mask(pio, sm, 1u << pin_tx, 1u << pin_tx);
+    pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_tx, 1u << pin_tx);
+    pio_gpio_init(pio, pin_tx);
+
+    pio_sm_config c = pio_uart_tx_program_get_default_config(offset);
+    sm_config_set_out_shift(&c, true, false, 32);
+    sm_config_set_out_pins(&c, pin_tx, 1);
+    sm_config_set_sideset_pins(&c, pin_tx);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    sm_config_set_clkdiv(&c, (float) clock_get_hz(clk_sys) / (8 * baud));
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
