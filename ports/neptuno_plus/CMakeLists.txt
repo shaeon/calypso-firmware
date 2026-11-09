@@ -17,14 +17,16 @@
 #   src/core/DB9Joystick.cxx     -> (not used)
 #   src/mist/db9.cxx             -> src/db9.cxx        (shift register, 2 ports)
 #   src/mist/buttons.cxx         -> src/buttons.cxx    (no user button)
-#   src/mist/FirmwareUpdate.cxx, midireceiver.cxx, midi_processor.cxx,
+#   src/mist/midireceiver.cxx, midi_processor.cxx,
 #   tap_processor.cxx            -> src/stubs.cxx      (features not enabled)
+#   src/mist/FirmwareUpdate.cxx     kept, entry points wrapped by
+#                                   src/FirmwareGuard.cxx (board + flash check)
 #   src/main.cxx                 -> src/main.cxx
 #
 # If upstream renames or drops one of those files, configuration stops with
 # an error instead of building a mix.
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.18)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -72,8 +74,20 @@ function(neptuno_remove_sources target)
 endfunction()
 
 neptuno_remove_sources(core JTAG.cxx SPIDevice.cxx DB9Joystick.cxx)
-neptuno_remove_sources(mist db9.cxx buttons.cxx FirmwareUpdate.cxx
+neptuno_remove_sources(mist db9.cxx buttons.cxx
     midireceiver.cxx midi_processor.cxx tap_processor.cxx)
+
+# The upstream SD card updater (src/mist/FirmwareUpdate.cxx) is built as it
+# is, with its three entry points renamed so src/FirmwareGuard.cxx can check
+# the board and the flash size before handing over to it.
+if (NOT EXISTS ${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx)
+    message(FATAL_ERROR "Neptuno+ port: src/mist/FirmwareUpdate.cxx is gone. "
+        "Upstream changed: review ports/neptuno_plus before building.")
+endif()
+set_source_files_properties(${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx
+    DIRECTORY ${UPSTREAM_SRC}/mist
+    PROPERTIES COMPILE_DEFINITIONS
+    "CheckFirmware=upstream_CheckFirmware;WriteFirmware=upstream_WriteFirmware;GetFirmwareVersion=upstream_GetFirmwareVersion")
 
 # The upstream libraries link the UART stdio driver, whose default pins
 # (GP0/GP1) are the FPGA DCLK/DATA0 on this board. Swap it for plain stdio.
@@ -101,6 +115,7 @@ add_executable(${PROJECT_NAME}
     src/db9.cxx
     src/buttons.cxx
     src/stubs.cxx
+    src/FirmwareGuard.cxx
     src/ShiftRegisterJoystick.cxx
     src/PioUartStdio.cxx
 )
@@ -138,3 +153,25 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 0)
 pico_add_extra_outputs(${PROJECT_NAME})
+
+# FIRMWARE.UPG for the SD card update: a copy of the UF2 tagged by the
+# upstream tools/uf2meta.py. The version starts with "NPP-", which is what
+# src/FirmwareGuard.cxx checks to refuse Calypso update files (and Calypso
+# refuses ours: different version prefix shown, same format). The plain UF2
+# is left untagged for BOOTSEL.
+string(TIMESTAMP FW_UPDATE_DATE "%Y%m%d")
+execute_process(COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CALYPSO_ROOT}
+    OUTPUT_VARIABLE FW_UPDATE_GIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+if (NOT FW_UPDATE_GIT)
+    set(FW_UPDATE_GIT "unknown")
+endif()
+find_package(Python3 COMPONENTS Interpreter REQUIRED)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.uf2
+        ${CMAKE_CURRENT_BINARY_DIR}/FIRMWARE.UPG
+    COMMAND ${Python3_EXECUTABLE} ${CALYPSO_ROOT}/tools/uf2meta.py
+        --version "NPP-${FVERSION}" --date "${FW_UPDATE_DATE}" --git "${FW_UPDATE_GIT}"
+        ${CMAKE_CURRENT_BINARY_DIR}/FIRMWARE.UPG
+    COMMENT "Writing FIRMWARE.UPG for the SD card update")

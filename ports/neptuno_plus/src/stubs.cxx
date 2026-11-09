@@ -5,24 +5,6 @@
 #include <inttypes.h>
 
 extern "C" {
-#include "mist-firmware/errors.h"
-
-extern unsigned char Error;
-
-// --- Firmware update from the SD card (src/mist/FirmwareUpdate.cxx) --------
-// Its layout needs a 16 MB flash and it would accept Calypso images: off.
-unsigned char CheckFirmware(char *name) {
-    printf("Firmware update from SD is not available on Neptuno+\n");
-    Error = ERROR_INVALID_DATA;
-    return 0;
-}
-
-char *GetFirmwareVersion(char *name) {
-    return nullptr;
-}
-
-void WriteFirmware(char *name) {}
-
 // --- MIDI synthesizer (src/mist/midireceiver.cxx, midi_processor.cxx) ------
 // Pending: audio pins and flash size to be confirmed on this board.
 void midi_byte_processor(uint8_t value) {}

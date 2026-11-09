@@ -94,6 +94,9 @@ int main() {
     printf("Reset: %s, development core kept: %s\n",
         watchdog_caused_reboot() ? "watchdog (MCUReset)" : "power-on/button",
         USB_LOAD_VAR == USB_LOAD_VALUE ? "yes" : "no");
+    extern uint32_t neptuno_flash_size();
+    printf("Flash: %lu KB (SD card update needs 16384 KB)\n",
+        (unsigned long) (neptuno_flash_size() / 1024));
     printf("FPGA at boot: nCONFIG=%d nSTATUS=%d CONF_DONE=%d\n",
         gpio_get(Configuration::GPIO_FPGA_NCONFIG),
         gpio_get(Configuration::GPIO_FPGA_NSTATUS),

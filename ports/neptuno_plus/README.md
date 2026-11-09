@@ -19,7 +19,29 @@ cmake ../ports/neptuno_plus
 make
 ```
 
-Sale `neptuno-plus-firmware.uf2`, que se graba por BOOTSEL.
+Salen dos ficheros:
+
+- `neptuno-plus-firmware.uf2`: para grabar por BOOTSEL.
+- `FIRMWARE.UPG`: para actualizar desde la SD. Se copia tal cual a la raíz de
+  la tarjeta y se lanza desde el menú (`Update FIRMWARE`).
+
+## Actualizar desde la SD
+
+Se usa el actualizador original de Calypso (`src/mist/FirmwareUpdate.cxx`) sin
+cambios. `src/FirmwareGuard.cxx` hace dos comprobaciones antes de cederle el
+control:
+
+- **Tamaño de la flash.** El actualizador original guarda la imagen nueva en
+  0x10800000, así que necesita una flash de 16 MB. Con una más pequeña esa
+  dirección cae encima del firmware en ejecución, y en ese caso la
+  actualización se rechaza. El tamaño real aparece en la consola de
+  depuración al arrancar, en la línea `Flash:`.
+- **Placa.** Solo acepta ficheros cuya versión empieza por `NPP-`. Un
+  `FIRMWARE.UPG` de Calypso se rechaza.
+
+Al revés no hay protección: el firmware original de Calypso aceptaría un
+`FIRMWARE.UPG` de Neptuno+, porque no comprueba el prefijo. No copies el de
+Neptuno+ en la SD de una Calypso.
 
 Consola de depuración opcional, solo transmisión, 115200 8N1:
 
@@ -59,7 +81,8 @@ sin tocar:
 | `src/core/SPIDevice.cxx` | `src/SPIDevice.cxx` | Igual que el original para el bus MiST; con `nullptr` usa PIO para la SD |
 | `src/mist/db9.cxx` | `src/db9.cxx` | Dos joysticks por el registro de desplazamiento |
 | `src/mist/buttons.cxx` | `src/buttons.cxx` | No hay botón en el lado del RP2040 |
-| `FirmwareUpdate.cxx`, `midireceiver.cxx`, `midi_processor.cxx`, `tap_processor.cxx` | `src/stubs.cxx` | Funciones no activadas en esta placa |
+| `midireceiver.cxx`, `midi_processor.cxx`, `tap_processor.cxx` | `src/stubs.cxx` | Funciones no activadas en esta placa |
+| `src/mist/FirmwareUpdate.cxx` | se compila tal cual | Sus 3 funciones se renombran y `src/FirmwareGuard.cxx` las envuelve |
 | `src/main.cxx` | `src/main.cxx` | Objetos y pines de Neptuno+ |
 | `src/core/Configuration.h` | `include/Configuration.h` | Mapa de pines (tiene prioridad en el include path) |
 
@@ -89,5 +112,4 @@ dejar los pines de SD y PS/2 como entradas.
   - Cinta: no hay ninguna línea libre hacia la FPGA.
   - Cores nativos (.NP1).
   - Soltar nCONFIG tras la configuración: es también la línea del reset.
-  - Actualización desde SD: desactivada.
 - El menú muestra la versión como `CLP-x.xx`, la del firmware original.
