@@ -146,6 +146,10 @@ MIDI va por user_io.
 
 ## Pines
 
+Para los cores: pinout del Neptuno+ comprobado con Quartus y plantilla `.qsf`
+en [`doc/`](doc/README.md).
+
+
 El esquema de la middleboard (`edge2vgadb9midi`) confirma el mapa. GP25 va a
 `R19_PAL`, que en esta placa base es CONF_DONE.
 

@@ -1,0 +1,234 @@
+# =============================================================================
+# Neptuno+ (EP4CGX150DF27) - pin assignments for MiST-style cores
+# =============================================================================
+#
+# Template for cores running with the calypso-firmware port for Neptuno+
+# (ports/neptuno_plus). See README.md in this directory.
+#
+# Checked with Quartus Prime Lite 17.0.2: all 105 locations in this file
+# (including the commented ones) are legal on EP4CGX150DF27 and the fitter
+# places every port on its pin.
+#
+# Source: pinout of ZXMicroJack's MiST ports for "neptuno2"
+# (https://github.com/ZXMicroJack/mist-ports, menu/neptuno2/menu.qsf and
+# spectrum/neptuno2/zxspectrum.qsf), cross-checked against the RP2040
+# middleboard schematic (edge2vgadb9midi).
+#
+# Use: copy the sections you need into the core's .qsf, or
+#      source ../path/to/neptuno_plus_pins.qsf
+# and rename the ports to match the core's top level.
+#
+# Lines starting with "#set_location_assignment" are documented but left
+# unassigned on purpose (see the notes on each section).
+
+# -----------------------------------------------------------------------------
+# Device and global settings (as in ZXMicroJack's neptuno2 cores)
+# -----------------------------------------------------------------------------
+set_global_assignment -name FAMILY "Cyclone IV GX"
+set_global_assignment -name DEVICE EP4CGX150DF27I7
+set_global_assignment -name USE_CONFIGURATION_DEVICE OFF
+set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVTTL"
+set_global_assignment -name RESERVE_ALL_UNUSED_PINS_WEAK_PULLUP "AS INPUT TRI-STATED"
+set_global_assignment -name RESERVE_DATA0_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_DATA1_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_FLASH_NCE_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name RESERVE_DCLK_AFTER_CONFIGURATION "USE AS REGULAR IO"
+set_global_assignment -name CYCLONEII_RESERVE_NCEO_AFTER_CONFIGURATION "USE AS REGULAR IO"
+
+# -----------------------------------------------------------------------------
+# Clock and LED
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_B14 -to CLOCK_50
+set_location_assignment PIN_A24 -to LED
+
+# -----------------------------------------------------------------------------
+# VGA, 8 bits per colour
+# A core with 6 bits per colour uses the 6 upper bits: its VGA_x[5:0] go to
+# the pins of VGA_x[7:2] below (as ZXMicroJack's neptuno2 menu does).
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_AE15 -to VGA_R[0]
+set_location_assignment PIN_AD16 -to VGA_R[1]
+set_location_assignment PIN_AC18 -to VGA_R[2]
+set_location_assignment PIN_AE18 -to VGA_R[3]
+set_location_assignment PIN_AF18 -to VGA_R[4]
+set_location_assignment PIN_AC19 -to VGA_R[5]
+set_location_assignment PIN_AD19 -to VGA_R[6]
+set_location_assignment PIN_AE19 -to VGA_R[7]
+set_location_assignment PIN_AF16 -to VGA_G[0]
+set_location_assignment PIN_AD17 -to VGA_G[1]
+set_location_assignment PIN_AF19 -to VGA_G[2]
+set_location_assignment PIN_AF21 -to VGA_G[3]
+set_location_assignment PIN_AE21 -to VGA_G[4]
+set_location_assignment PIN_AF22 -to VGA_G[5]
+set_location_assignment PIN_AF23 -to VGA_G[6]
+set_location_assignment PIN_AD21 -to VGA_G[7]
+set_location_assignment PIN_AC16 -to VGA_B[0]
+set_location_assignment PIN_AF15 -to VGA_B[1]
+set_location_assignment PIN_AF20 -to VGA_B[2]
+set_location_assignment PIN_AD20 -to VGA_B[3]
+set_location_assignment PIN_AE22 -to VGA_B[4]
+set_location_assignment PIN_AE23 -to VGA_B[5]
+set_location_assignment PIN_AC21 -to VGA_B[6]
+set_location_assignment PIN_AF24 -to VGA_B[7]
+set_location_assignment PIN_AE17 -to VGA_HS
+set_location_assignment PIN_AD18 -to VGA_VS
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to VGA_*
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to LED
+
+# -----------------------------------------------------------------------------
+# Audio (sigma-delta outputs)
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_AF17 -to AUDIO_L
+set_location_assignment PIN_AC17 -to AUDIO_R
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUDIO_L
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to AUDIO_R
+
+# Board I2S audio output. Left unassigned in ZXMicroJack's neptuno2 cores.
+#set_location_assignment PIN_AD15 -to I2SL
+#set_location_assignment PIN_AC15 -to I2SC
+#set_location_assignment PIN_AE14 -to I2SD
+
+# Tape input
+#set_location_assignment PIN_C21 -to EAR
+
+# -----------------------------------------------------------------------------
+# SDRAM
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_L25 -to SDRAM_A[0]
+set_location_assignment PIN_L26 -to SDRAM_A[1]
+set_location_assignment PIN_M25 -to SDRAM_A[2]
+set_location_assignment PIN_M26 -to SDRAM_A[3]
+set_location_assignment PIN_N22 -to SDRAM_A[4]
+set_location_assignment PIN_N23 -to SDRAM_A[5]
+set_location_assignment PIN_N24 -to SDRAM_A[6]
+set_location_assignment PIN_M22 -to SDRAM_A[7]
+set_location_assignment PIN_M24 -to SDRAM_A[8]
+set_location_assignment PIN_L23 -to SDRAM_A[9]
+set_location_assignment PIN_K26 -to SDRAM_A[10]
+set_location_assignment PIN_L24 -to SDRAM_A[11]
+set_location_assignment PIN_K23 -to SDRAM_A[12]
+set_location_assignment PIN_J25 -to SDRAM_BA[0]
+set_location_assignment PIN_J26 -to SDRAM_BA[1]
+set_location_assignment PIN_B25 -to SDRAM_DQ[0]
+set_location_assignment PIN_B26 -to SDRAM_DQ[1]
+set_location_assignment PIN_C25 -to SDRAM_DQ[2]
+set_location_assignment PIN_C26 -to SDRAM_DQ[3]
+set_location_assignment PIN_D25 -to SDRAM_DQ[4]
+set_location_assignment PIN_D26 -to SDRAM_DQ[5]
+set_location_assignment PIN_E25 -to SDRAM_DQ[6]
+set_location_assignment PIN_E26 -to SDRAM_DQ[7]
+set_location_assignment PIN_H23 -to SDRAM_DQ[8]
+set_location_assignment PIN_G24 -to SDRAM_DQ[9]
+set_location_assignment PIN_G22 -to SDRAM_DQ[10]
+set_location_assignment PIN_F24 -to SDRAM_DQ[11]
+set_location_assignment PIN_F23 -to SDRAM_DQ[12]
+set_location_assignment PIN_E24 -to SDRAM_DQ[13]
+set_location_assignment PIN_D24 -to SDRAM_DQ[14]
+set_location_assignment PIN_C24 -to SDRAM_DQ[15]
+set_location_assignment PIN_F26 -to SDRAM_DQML
+set_location_assignment PIN_H24 -to SDRAM_DQMH
+set_location_assignment PIN_H25 -to SDRAM_nRAS
+set_location_assignment PIN_G26 -to SDRAM_nCAS
+set_location_assignment PIN_G25 -to SDRAM_nWE
+set_location_assignment PIN_H26 -to SDRAM_nCS
+set_location_assignment PIN_K24 -to SDRAM_CKE
+set_location_assignment PIN_E22 -to SDRAM_CLK
+set_instance_assignment -name CURRENT_STRENGTH_NEW "MAXIMUM CURRENT" -to SDRAM_*
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_A[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_BA[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_DQ[*]
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_DQML
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_DQMH
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_nRAS
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_nCAS
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_nWE
+set_instance_assignment -name FAST_OUTPUT_REGISTER ON -to SDRAM_nCS
+set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to SDRAM_DQ[*]
+
+# -----------------------------------------------------------------------------
+# MiST SPI bus to the RP2040 (user_io, data_io, OSD, direct SD mode)
+#   RP2040   middleboard   FPGA
+#   GP16     V8            SPI_DO      core output (MISO towards the RP2040)
+#   GP19     V7            SPI_DI      core input
+#   GP18     W7            SPI_SCK
+#   GP17     W9            CONF_DATA0  user_io select
+#   GP20     W5            SPI_SS2     data_io select
+#   GP21     W6            SPI_SS3     OSD select
+#   GP22     W4            SPI_SS4     direct SD mode
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_AC14 -to SPI_DO
+set_location_assignment PIN_AF12 -to SPI_DI
+set_location_assignment PIN_AF11 -to SPI_SCK
+set_location_assignment PIN_AD14 -to CONF_DATA0
+set_location_assignment PIN_AC10 -to SPI_SS2
+set_location_assignment PIN_AD10 -to SPI_SS3
+set_location_assignment PIN_AE9 -to SPI_SS4
+set_instance_assignment -name CURRENT_STRENGTH_NEW 4MA -to SPI_DO
+
+# -----------------------------------------------------------------------------
+# MIDI synthesizer audio from the RP2040 (standard I2S, 16-bit stereo, 24 kHz)
+# All three are core INPUTS. Port names as in the Calypso cores.
+#   RP2040   middleboard   FPGA
+#   GP2      AA8_CLKBD     I2S_MIDI_BCK
+#   GP3      Y8_WSBD       I2S_MIDI_LRCK
+#   GP4      AB8_DABD      I2S_MIDI_DATA
+# The MIDI bytes go from the core to the RP2040 through user_io: no pin.
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_AA8 -to I2S_MIDI_BCK
+set_location_assignment PIN_AF6 -to I2S_MIDI_LRCK
+set_location_assignment PIN_AE7 -to I2S_MIDI_DATA
+
+# Middleboard AB7_OUT (RP2040 GP5). Not used by this firmware.
+#set_location_assignment PIN_AE5 -to MIDI_RX
+
+# -----------------------------------------------------------------------------
+# DB9 joysticks
+# The RP2040 lines (JOY_X*) reach only the FPGA. The core must bridge them to
+# the shift registers (JOY_*), or the firmware sees no joysticks:
+#
+#   assign JOY_CLK   = JOY_XCLK;
+#   assign JOY_LOAD  = JOY_XLOAD;
+#   assign JOY_XDATA = JOY_DATA;
+#   assign JOY_SELECT = 1'b1;    // or ZXMicroJack's toggle (see README.md)
+#
+#   RP2040   middleboard   FPGA        direction in the core
+#   GP26     AA4_XLOAD     JOY_XLOAD   input
+#   GP27     AB5_XSCK      JOY_XCLK    input
+#   GP28     AA6_XDATA     JOY_XDATA   output
+# -----------------------------------------------------------------------------
+set_location_assignment PIN_AE3 -to JOY_XLOAD
+set_location_assignment PIN_AF4 -to JOY_XCLK
+set_location_assignment PIN_AF5 -to JOY_XDATA
+set_location_assignment PIN_AC4 -to JOY_LOAD
+set_location_assignment PIN_AD4 -to JOY_CLK
+set_location_assignment PIN_AD3 -to JOY_DATA
+set_location_assignment PIN_A19 -to JOY_SELECT
+
+# -----------------------------------------------------------------------------
+# Lines driven by the RP2040 in MiST mode: leave UNASSIGNED in MiST cores
+# (or as inputs). Listed for native cores and for reference.
+# -----------------------------------------------------------------------------
+# SD card (RP2040 GP6..9; middleboard M5_MISO, L4_MOSI, M6_SCK, L5_CS)
+#set_location_assignment PIN_A4 -to SD_MISO
+#set_location_assignment PIN_C4 -to SD_MOSI
+#set_location_assignment PIN_B4 -to SD_SCK
+#set_location_assignment PIN_C5 -to SD_CS
+# PS/2 keyboard (GP11/12) and mouse (GP14/15)
+#set_location_assignment PIN_C1 -to PS2_KCLK
+#set_location_assignment PIN_D1 -to PS2_KDAT
+#set_location_assignment PIN_A2 -to PS2_MCLK
+#set_location_assignment PIN_B1 -to PS2_MDAT
+
+# -----------------------------------------------------------------------------
+# Other peripherals wired to the FPGA only
+# -----------------------------------------------------------------------------
+# RTC MCP79410 (I2C)
+#set_location_assignment PIN_AD5 -to RTC_SCL
+#set_location_assignment PIN_AD6 -to RTC_SDA
+# ESP8266 module. Named after the middleboard signals (N3_TXD, D1_RXD,
+# H5_RTS, J2_GPIO0); the TXD/RXD direction has not been checked.
+#set_location_assignment PIN_B19 -to ESP_TXD
+#set_location_assignment PIN_B18 -to ESP_RXD
+#set_location_assignment PIN_A12 -to ESP_RTS
+#set_location_assignment PIN_C11 -to ESP_GPIO0
+
