@@ -21,8 +21,9 @@
 #   tap_processor.cxx            -> src/stubs.cxx      (features not enabled)
 #   src/mist/FirmwareUpdate.cxx     kept, entry points wrapped by
 #                                   src/FirmwareGuard.cxx (board + flash check)
-#   src/mist/compat.c               kept, mist_loop wrapped by src/CoreWatch.cxx
-#                                   (recover when no MiST core is recognised)
+#   src/mist/compat.c               kept, mist_loop and MCUReset wrapped by
+#                                   src/CoreWatch.cxx (JTAG-loaded cores are
+#                                   adopted without restarting the MCU)
 #   src/main.cxx                 -> src/main.cxx
 #
 # If upstream renames or drops one of those files, configuration stops with
@@ -86,16 +87,17 @@ if (NOT EXISTS ${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx)
     message(FATAL_ERROR "Neptuno+ port: src/mist/FirmwareUpdate.cxx is gone. "
         "Upstream changed: review ports/neptuno_plus before building.")
 endif()
-# compat.c is built as it is, with mist_loop renamed so src/CoreWatch.cxx can
-# wrap it: upstream never leaves LEGACY_MODE once the core type is unknown,
-# which leaves the firmware dead after an unlucky JTAG load.
+# compat.c is built as it is, with mist_loop and MCUReset renamed so
+# src/CoreWatch.cxx can wrap them: a core loaded through JTAG is adopted
+# without restarting the MCU, and the firmware recovers when no MiST core is
+# recognised (upstream never leaves LEGACY_MODE).
 if (NOT EXISTS ${UPSTREAM_SRC}/mist/compat.c)
     message(FATAL_ERROR "Neptuno+ port: src/mist/compat.c is gone. "
         "Upstream changed: review ports/neptuno_plus before building.")
 endif()
 set_source_files_properties(${UPSTREAM_SRC}/mist/compat.c
     DIRECTORY ${UPSTREAM_SRC}/mist
-    PROPERTIES COMPILE_DEFINITIONS "mist_loop=upstream_mist_loop")
+    PROPERTIES COMPILE_DEFINITIONS "mist_loop=upstream_mist_loop;MCUReset=upstream_MCUReset")
 
 set_source_files_properties(${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx
     DIRECTORY ${UPSTREAM_SRC}/mist

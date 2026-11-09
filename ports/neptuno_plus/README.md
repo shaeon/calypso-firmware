@@ -94,39 +94,35 @@ Además, las librerías originales enlazan el driver de UART de stdio. Este
 
 ## Carga de cores por JTAG (USB Blaster)
 
-**Forma recomendada: `JTAGMODE.RBF`**, igual que en el firmware de ZXMicroJack.
+**Carga directa.** Basta con cargar el core desde Quartus con el menú (o
+cualquier core) en marcha. El firmware nota el cambio y adopta el core nuevo:
+lo detecta, carga su ARC de desarrollo si existe e inicializa OSD y ROM.
+
+El firmware original reinicia el RP2040 (`MCUReset`) para adoptar el core. En
+el Neptuno+ eso no sirve: durante el reinicio todos los pines del RP2040
+vuelven a su estado por defecto (entrada con pull-down), nCONFIG incluido, y
+la FPGA se resetea. Por eso la primera carga por JTAG funcionaba y la segunda
+dejaba la FPGA sin core. `src/CoreWatch.cxx` sustituye `MCUReset()`: cuando
+se trata de un core cargado por JTAG, vuelve al bucle principal y repite la
+secuencia de adopción del arranque **sin reiniciar el RP2040**. Cualquier
+otro `MCUReset()` (por ejemplo la combinación de teclas de reset de MiST)
+reinicia como siempre.
+
+Además, si en algún momento el firmware no reconoce el core, sigue
+vigilándolo y lo adopta en cuanto responde de forma estable. El original se
+quedaría en `LEGACY_MODE` para siempre, sin OSD.
+
+**`JTAGMODE.RBF`** (como en el firmware de ZXMicroJack). Sigue disponible por
+si hiciera falta:
 
 1. Crea en la SD un fichero vacío (0 bytes) llamado `JTAGMODE.RBF`. En
    Windows: `type nul > JTAGMODE.RBF`.
-2. Antes de cada carga por JTAG, selecciónalo en el menú como si fuera un core.
-3. El firmware resetea la FPGA, suelta DCLK/DATA0 y espera hasta 60 segundos.
-   Mientras tanto, carga el core desde Quartus.
-4. Cuando el core responde, el firmware lo detecta y lo inicializa como si lo
-   hubiera cargado él. Para cargar otro, vuelve a seleccionar `JTAGMODE.RBF`.
+2. Selecciónalo en el menú como si fuera un core.
+3. El firmware resetea la FPGA, suelta DCLK/DATA0 y espera hasta 60 segundos
+   a que cargues el core desde Quartus.
 
-Así la carga por JTAG empieza siempre con la FPGA recién reseteada y con el
-firmware quieto. Cualquier `.RBF` vacío sirve: un fichero de 0 bytes nunca es
-un core válido. En la consola de depuración aparecen los mensajes `JTAG mode:`.
-
-**Carga directa, sin `JTAGMODE.RBF`.** También funciona el mecanismo del MiST
-original:
-
-Al cargar un core por JTAG, `user_io_poll()` nota el cambio, marca "conservar
-el core" (`USB_LOAD_VAR`) y reinicia el RP2040 (`MCUReset`) en cuanto lee un
-identificador de core válido. Tras el reinicio, el firmware adopta el core que
-hay en la FPGA en vez de cargar el menú.
-
-**Fallo del firmware original que se corrige aquí.** Si al arrancar el tipo de
-core sale desconocido, `mist_loop()` pasa a `LEGACY_MODE` y deja de llamar a
-`user_io_poll()`. Desde ese momento nunca vuelve a leer el tipo de core, y el
-firmware se queda sin OSD y sin reaccionar. Al cargar por JTAG ocurre cuando
-el reinicio llega antes de que termine la carga: basta una lectura con ruido
-que parezca un identificador válido. Por eso unas veces funciona y otras no.
-
-`src/CoreWatch.cxx` envuelve `mist_loop()`. Mientras el core sea desconocido,
-lee el identificador cada 50 ms. Cuando ve un core MiST válido y estable
-durante medio segundo, hace lo mismo que el original: conserva el core y
-reinicia. En la consola de depuración aparecen los mensajes `CoreWatch:`.
+En la consola de depuración aparecen los mensajes `MCUReset:`, `Adopting`,
+`CoreWatch:` y `JTAG mode:`.
 
 ## Pines
 

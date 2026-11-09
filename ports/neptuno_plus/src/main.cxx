@@ -74,16 +74,6 @@ int main() {
     // Same clock as Calypso (PIO and SPI rates are derived from it)
     set_sys_clock_khz(250000, false);
 
-    // DCLK and DATA0 must not float once the FPGA is configured, and after a
-    // reboot of this MCU it may still hold a core (e.g. loaded through JTAG).
-    // Drive them low before anything else, as the loader leaves them.
-    gpio_init(Configuration::GPIO_FPGA_DCLK);
-    gpio_put(Configuration::GPIO_FPGA_DCLK, 0);
-    gpio_set_dir(Configuration::GPIO_FPGA_DCLK, GPIO_OUT);
-    gpio_init(Configuration::GPIO_FPGA_DATA0);
-    gpio_put(Configuration::GPIO_FPGA_DATA0, 0);
-    gpio_set_dir(Configuration::GPIO_FPGA_DATA0, GPIO_OUT);
-
     // nCONFIG high, as the Passive Serial loader leaves it. After an
     // MCUReset() (core adopted from a JTAG load) the FPGA is not configured
     // again, so without this the line would be held only by the board

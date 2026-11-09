@@ -208,9 +208,10 @@ void JTAG::endProgram() {
         return;
     }
     const bool ok = !s_error && gpio_get(CONF_DONE) && gpio_get(NSTATUS);
-    // DCLK and DATA0 must not float after configuration: leave them driven low
-    gpio_put(DCLK, 0);
-    gpio_put(DATA0, 0);
+    // Release DCLK and DATA0 (inputs, kept low by the RP2040 default
+    // pull-downs), as ZXMicroJack's firmware does after configuring.
+    gpio_init(DCLK);
+    gpio_init(DATA0);
     printf("PS: %s, %lu bytes (nSTATUS=%d CONF_DONE=%d)\n", ok ? "configured" : "FAILED",
         (unsigned long) s_bytes, gpio_get(NSTATUS), gpio_get(CONF_DONE));
 }

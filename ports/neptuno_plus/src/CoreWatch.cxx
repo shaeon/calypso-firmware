@@ -12,12 +12,26 @@
 // load ends, fpga_init() gives up after 100 ms and the core type is left as
 // unknown.
 //
+// Adopting a JTAG-loaded core without restarting the MCU: upstream calls
+// MCUReset() to pick up a core loaded through JTAG. Restarting the RP2040
+// puts every pin back to its reset state (input with pull-down), nCONFIG
+// included, until main() sets them again. On Neptuno+ that window resets the
+// FPGA: the second JTAG load "configures" but the core never starts.
+// ZXMicroJack's firmware does not restart there (its MCUReset() is empty,
+// so it hangs in the for(;;) that follows) and the FPGA keeps the core.
+// Here MCUReset() is replaced: when USB_LOAD_VAR asks to keep the core, it
+// jumps back to mist_loop() and runs the same adoption sequence as the boot
+// (detect, development ARC, fpga_init) without touching the pins. Any other
+// MCUReset() (e.g. the MiST reset key combo) still restarts the MCU.
+//
 // compat.c is built unchanged with mist_loop renamed to upstream_mist_loop
 // (see CMakeLists.txt). This wrapper keeps reading the core id while the type
 // is unknown; once a valid MiST id is seen several times in a row it does what
 // upstream does for a JTAG load: keep the core (USB_LOAD_VAR) and restart.
 
 #include <cstdio>
+#include <csetjmp>
+#include <cstring>
 #include "pico/time.h"
 #include "hardware/gpio.h"
 #include "Configuration.h"
@@ -28,7 +42,19 @@ extern "C" {
 #include "mist/hardware.h"
 
 int upstream_mist_loop();
+void upstream_MCUReset();
 unsigned char user_io_core_type();
+void user_io_detect_core_type();
+void user_io_reset();
+char user_io_create_config_name(char *s, const char *ext, char flags);
+void user_io_set_core_mod(int64_t mod);
+int64_t arc_open(const char *fname);
+char *arc_get_rbfname();
+unsigned char fpga_init(const char *name);
+void set_legacy_mode(uint8_t mode);
+void DB9SetLegacy(uint8_t on);
+void StateReset();
+void CloseMenu();
 }
 
 namespace {
@@ -40,6 +66,7 @@ namespace {
     int s_validReads = 0;
     unsigned char s_lastId = 0;
     bool s_announced = false;
+    bool s_adoptRequested = false;
 
     void watchForCore() {
         const uint64_t now = time_us_64();
@@ -59,10 +86,10 @@ namespace {
         if ((id & 0xe0) == 0xa0 && (s_validReads == 0 || id == s_lastId)) {
             s_lastId = id;
             if (++s_validReads >= STABLE_READS) {
-                printf("CoreWatch: MiST core found (id %02x), restarting to adopt it\n", id);
-                USB_LOAD_VAR = USB_LOAD_VALUE;
-                MCUReset();
-                for (;;);
+                printf("CoreWatch: MiST core found (id %02x)\n", id);
+                s_validReads = 0;
+                s_adoptRequested = true;
+                return;
             }
         } else {
             s_validReads = 0;
@@ -115,13 +142,75 @@ namespace {
     }
 }
 
+namespace {
+    jmp_buf s_loopJump;
+    volatile bool s_jumpValid = false;
+    char s_configName[256];
+
+    // Same sequence mist_init() (compat.c) runs at boot when USB_LOAD_VAR is
+    // set, plus what the menu does after loading a core.
+    void adoptCore() {
+        printf("Adopting the core in the FPGA without restarting the MCU\n");
+        USB_LOAD_VAR = USB_LOAD_VALUE;
+        user_io_reset();
+
+        int64_t mod = -1;
+        user_io_detect_core_type();
+        if (user_io_core_type() != CORE_TYPE_UNKNOWN &&
+            !user_io_create_config_name(s_configName, "ARC", 1 /* CONFIG_ROOT */)) {
+            printf("Load development ARC: %s\n", s_configName);
+            mod = (char) arc_open(s_configName);   // same narrowing as compat.c
+        }
+        // USB_LOAD_VAR is set, so fpga_init() does not configure the FPGA: it
+        // detects and initialises the core that is there, and clears the flag.
+        if (mod < 0 || !strlen(arc_get_rbfname())) {
+            fpga_init(nullptr);
+        } else {
+            user_io_set_core_mod(mod);
+            strncpy(s_configName, arc_get_rbfname(), sizeof(s_configName) - 5);
+            s_configName[sizeof(s_configName) - 5] = 0;
+            strcat(s_configName, ".RBF");
+            fpga_init(s_configName);
+        }
+        DB9SetLegacy(0);
+        set_legacy_mode(user_io_core_type() == CORE_TYPE_UNKNOWN ? LEGACY_MODE : MIST_MODE);
+        StateReset();
+        CloseMenu();
+        printf("Core adopted, type %02x\n", user_io_core_type());
+    }
+}
+
+extern "C" void MCUReset() {
+    if (USB_LOAD_VAR == USB_LOAD_VALUE && s_jumpValid) {
+        printf("MCUReset: new core loaded through JTAG, adopting it without restarting\n");
+        s_jumpValid = false;
+        longjmp(s_loopJump, 1);
+    }
+    upstream_MCUReset();
+    for (;;);
+}
+
 extern "C" int mist_loop() {
+    if (setjmp(s_loopJump)) {
+        // Back from MCUReset() inside upstream_mist_loop()
+        adoptCore();
+        s_validReads = 0;
+        s_announced = false;
+        return 0;
+    }
 #ifdef NEPTUNO_DEBUG_UART_PIN
     monitor();
 #endif
+    s_jumpValid = true;
     const int result = upstream_mist_loop();
+    s_jumpValid = false;
     if (user_io_core_type() == CORE_TYPE_UNKNOWN) {
         watchForCore();
+        if (s_adoptRequested) {
+            s_adoptRequested = false;
+            adoptCore();
+            s_announced = false;
+        }
     } else {
         s_validReads = 0;
         s_announced = false;
