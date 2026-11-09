@@ -84,6 +84,15 @@ int main() {
     gpio_put(Configuration::GPIO_FPGA_DATA0, 0);
     gpio_set_dir(Configuration::GPIO_FPGA_DATA0, GPIO_OUT);
 
+    // nCONFIG high, as the Passive Serial loader leaves it. After an
+    // MCUReset() (core adopted from a JTAG load) the FPGA is not configured
+    // again, so without this the line would be held only by the board
+    // pull-up against the RP2040 default pull-down: the one electrical
+    // difference between the first JTAG load (works) and the next ones.
+    gpio_init(Configuration::GPIO_FPGA_NCONFIG);
+    gpio_put(Configuration::GPIO_FPGA_NCONFIG, 1);
+    gpio_set_dir(Configuration::GPIO_FPGA_NCONFIG, GPIO_OUT);
+
     // No UART here: its default pins are DCLK/DATA0 (see CMakeLists.txt)
     stdio_init_all();
 #ifdef NEPTUNO_DEBUG_UART_PIN

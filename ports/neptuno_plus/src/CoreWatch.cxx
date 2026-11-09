@@ -19,6 +19,8 @@
 
 #include <cstdio>
 #include "pico/time.h"
+#include "hardware/gpio.h"
+#include "Configuration.h"
 
 extern "C" {
 #include "spi.h"
@@ -68,7 +70,55 @@ namespace {
     }
 }
 
+namespace {
+    // Diagnostics: log every change of the FPGA configuration lines and of
+    // the core id, with a timestamp. A JTAG load shows up as CONF_DONE going
+    // low and back high; the core id shows what user_io sees meanwhile.
+    constexpr uint64_t MONITOR_INTERVAL_US = 2000;
+    uint64_t s_nextMonitor = 0;
+    int s_lastPins = -1;
+    int s_lastCoreId = -1;
+    unsigned char s_lastType = 0;
+
+    int readPins() {
+        return (gpio_get(Configuration::GPIO_FPGA_NCONFIG) ? 4 : 0) |
+               (gpio_get(Configuration::GPIO_FPGA_NSTATUS) ? 2 : 0) |
+               (gpio_get(Configuration::GPIO_FPGA_CONF_DONE) ? 1 : 0);
+    }
+
+    void monitor() {
+        const uint64_t now = time_us_64();
+        if (now < s_nextMonitor) return;
+        s_nextMonitor = now + MONITOR_INTERVAL_US;
+        const unsigned long ms = (unsigned long) (now / 1000);
+
+        const int pins = readPins();
+        if (pins != s_lastPins) {
+            printf("[%lu ms] FPGA lines: nCONFIG=%d nSTATUS=%d CONF_DONE=%d\n",
+                ms, (pins >> 2) & 1, (pins >> 1) & 1, pins & 1);
+            s_lastPins = pins;
+        }
+
+        EnableIO();
+        const int id = SPI(0xff);
+        DisableIO();
+        if (id != s_lastCoreId) {
+            printf("[%lu ms] core id read: %02x\n", ms, id);
+            s_lastCoreId = id;
+        }
+
+        const unsigned char type = user_io_core_type();
+        if (type != s_lastType) {
+            printf("[%lu ms] firmware core type: %02x\n", ms, type);
+            s_lastType = type;
+        }
+    }
+}
+
 extern "C" int mist_loop() {
+#ifdef NEPTUNO_DEBUG_UART_PIN
+    monitor();
+#endif
     const int result = upstream_mist_loop();
     if (user_io_core_type() == CORE_TYPE_UNKNOWN) {
         watchForCore();
