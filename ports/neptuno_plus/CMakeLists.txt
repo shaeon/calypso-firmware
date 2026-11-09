@@ -17,8 +17,7 @@
 #   src/core/DB9Joystick.cxx     -> (not used)
 #   src/mist/db9.cxx             -> src/db9.cxx        (shift register, 2 ports)
 #   src/mist/buttons.cxx         -> src/buttons.cxx    (no user button)
-#   src/mist/midireceiver.cxx, midi_processor.cxx,
-#   tap_processor.cxx            -> src/stubs.cxx      (features not enabled)
+#   src/mist/tap_processor.cxx   -> src/stubs.cxx      (no tape on this board)
 #   src/mist/FirmwareUpdate.cxx     kept, entry points wrapped by
 #                                   src/FirmwareGuard.cxx (board + flash check)
 #   src/mist/compat.c               kept, mist_loop and MCUReset wrapped by
@@ -61,6 +60,7 @@ pico_sdk_init()
 # --- Upstream libraries, unchanged -------------------------------------------
 add_subdirectory(${UPSTREAM_SRC}/core ${CMAKE_BINARY_DIR}/upstream/core)
 add_subdirectory(${UPSTREAM_SRC}/mist ${CMAKE_BINARY_DIR}/upstream/mist)
+add_subdirectory(${UPSTREAM_SRC}/midi ${CMAKE_BINARY_DIR}/upstream/midi)
 
 # Drop upstream sources replaced by this port. Fails if one is not found.
 function(neptuno_remove_sources target)
@@ -77,8 +77,7 @@ function(neptuno_remove_sources target)
 endfunction()
 
 neptuno_remove_sources(core JTAG.cxx SPIDevice.cxx DB9Joystick.cxx)
-neptuno_remove_sources(mist db9.cxx buttons.cxx
-    midireceiver.cxx midi_processor.cxx tap_processor.cxx)
+neptuno_remove_sources(mist db9.cxx buttons.cxx tap_processor.cxx)
 
 # The upstream SD card updater (src/mist/FirmwareUpdate.cxx) is built as it
 # is, with its three entry points renamed so src/FirmwareGuard.cxx can check
@@ -118,6 +117,7 @@ function(neptuno_drop_stdio_uart target)
 endfunction()
 neptuno_drop_stdio_uart(core)
 neptuno_drop_stdio_uart(mist)
+neptuno_drop_stdio_uart(midi)
 
 # Our Configuration.h must win over src/core/Configuration.h (mist/spi.cxx)
 target_include_directories(mist BEFORE PRIVATE ${PORT_DIR}/include)
@@ -160,6 +160,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     pico_stdio
     hardware_pio
     hardware_spi
+    midi
     mist
     core
     tinyusb_host

@@ -1,5 +1,5 @@
 // Neptuno+ entry point. Same structure as src/main.cxx (Calypso), with the
-// Neptuno+ hardware: no tape, no MIDI synth, no user button, joysticks
+// Neptuno+ hardware: no tape, no user button, joysticks
 // through the shift register and the SD card on its own PIO-driven bus.
 // When src/main.cxx changes upstream, check whether this file needs the same.
 
@@ -19,6 +19,10 @@
 #include "USBService.h"
 #include "Util.h"
 #include "ShiftRegisterJoystick.h"
+#include "midi/I2SAudioTarget.h"
+#include "midi/WaveTablePlayer.h"
+#include "midi/MIDIService.h"
+#include "midi/MidiPlayerService.h"
 #ifdef NEPTUNO_DEBUG_UART_PIN
 #include "PioUartStdio.h"
 #endif
@@ -70,6 +74,14 @@ USBService usbService;
 MistService mistService(Configuration::GPIO_MIST_USERIO, Configuration::GPIO_MIST_DATAIO,
     Configuration::GPIO_MIST_OSD, Configuration::GPIO_MIST_DMODE);
 
+// MIDI synthesizer, as on Calypso: the core sends the MIDI bytes through
+// user_io, the RP2040 plays them and returns stereo I2S on GP2/3/4.
+I2SAudioTarget i2sAudioTarget(Configuration::MIDI_SAMPLE_FREQ,
+    Configuration::GPIO_I2S_BASE, Configuration::GPIO_I2S_DATA, Configuration::I2S_PIO_SM);
+static WaveTablePlayer wavePlayer(i2sAudioTarget);
+MIDIService midiService(i2sAudioTarget, wavePlayer);
+MidiPlayerService midiPlayerService(midiService);
+
 int main() {
     // Same clock as Calypso (PIO and SPI rates are derived from it)
     set_sys_clock_khz(250000, false);
@@ -103,6 +115,7 @@ int main() {
 
     Service::registerService(&usbService);
     Service::registerService(&mistService);
+    Service::registerService(&midiPlayerService);
     spi.init();
     if (!sdSpi.init()) {
         printf("Error initializing the SD card PIO SPI\n");

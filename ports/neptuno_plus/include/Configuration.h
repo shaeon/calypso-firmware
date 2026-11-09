@@ -12,10 +12,10 @@
 //  --  -----  -----------------------------------------------------------
 //   0  L12    FPGA DCLK  (Passive Serial)   - NOT the debug UART here
 //   1  R22    FPGA DATA0 (Passive Serial)   - NOT the debug UART here
-//   2  AA8    audio clock   -> FPGA  (not used yet)
-//   3  Y8     audio ws      -> FPGA
-//   4  AB8    audio data    -> FPGA
-//   5  AB7    MIDI from FPGA (not used: MIDI comes through user_io)
+//   2  AA8    MIDI synth I2S BCLK  -> FPGA
+//   3  Y8     MIDI synth I2S LRCLK -> FPGA
+//   4  AB8    MIDI synth I2S DATA  -> FPGA
+//   5  AB7    (unused: MIDI bytes come from the core through user_io)
 //   6  M5     SD MISO  \
 //   7  L4     SD MOSI   |  SD card, shared with the FPGA (direct mode)
 //   8  M6     SD SCK    |
@@ -73,6 +73,15 @@ public:
     static constexpr uint8_t GPIO_PS2_DATA1 = 12;
     static constexpr uint8_t GPIO_PS2_CLK2  = 14;
     static constexpr uint8_t GPIO_PS2_DATA2 = 15;
+
+    // MIDI synthesizer output, standard I2S as on Calypso (BCLK = base,
+    // LRCLK = base + 1, as pico_audio_i2s requires). On pio1, state machine 3:
+    // the library claims a fixed one, and the SD bus, the joysticks and the
+    // optional debug console take the lower ones (claimed at boot).
+    static constexpr uint32_t MIDI_SAMPLE_FREQ = 24000;
+    static constexpr uint8_t GPIO_I2S_BASE = 2;     // takes GP2 (BCLK) and GP3 (LRCLK)
+    static constexpr uint8_t GPIO_I2S_DATA = 4;
+    static constexpr uint8_t I2S_PIO_SM = 3;
 
     // Joystick shift register (SCK must be LOAD + 1)
     static constexpr uint8_t GPIO_JOY_LOAD = 26;
