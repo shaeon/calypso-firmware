@@ -6,9 +6,15 @@
 // and for the files of this port.
 //
 // Taken from ZXMicroJack's mist-firmware-rp2040 (drivers/pins.h, "mistusb"
-// target: ALTERA_FPGA + QMTECH + SD_DIRECT_MODE_GPIO=22).
+// target: ALTERA_FPGA + QMTECH + SD_DIRECT_MODE_GPIO=22) and checked against
+// the middleboard schematic (edge2vgadb9midi).
 //
-//  GP  FPGA   Function
+// The second column is the middleboard SIGNAL NAME, which carries the FPGA
+// pin of the board the middleboard was first drawn for (484-pin package).
+// It is NOT the pin on the Neptuno+ FPGA (EP4CGX150DF27, 672 pins): there the
+// same connector lines land on other pins, given by the Neptuno+ pinout.
+//
+//  GP  Signal Function
 //  --  -----  -----------------------------------------------------------
 //   0  L12    FPGA DCLK  (Passive Serial)   - NOT the debug UART here
 //   1  R22    FPGA DATA0 (Passive Serial)   - NOT the debug UART here

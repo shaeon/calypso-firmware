@@ -130,14 +130,16 @@ El mismo de Calypso (wavetable con reverb). El core envía los bytes MIDI por
 user_io y el RP2040 devuelve audio estéreo en **I2S estándar**: 16 bits a
 24 kHz, por los pines que la middleboard tiene para audio hacia la FPGA.
 
-| GPIO | Señal | Pin FPGA | I2S |
+| GPIO | Señal de la middleboard | Pin del conector JP5 | I2S |
 |---|---|---|---|
-| GP2 | AA8_CLKBD | AA8 | BCLK |
-| GP3 | Y8_WSBD | Y8 | LRCLK |
-| GP4 | AB8_DABD | AB8 | DATA |
+| GP2 | AA8_CLKBD | 8 | BCLK |
+| GP3 | Y8_WSBD | 3 | LRCLK |
+| GP4 | AB8_DABD | 9 | DATA |
 
-En el core se usa el mismo receptor I2S que en los cores de Calypso,
-asignado a AA8, Y8 y AB8. **Los cores hechos para el firmware de
+En el core se usa el mismo receptor I2S que en los cores de Calypso. **Los
+nombres de señal (AA8, Y8, AB8) no son pines del FPGA del Neptuno+**: son los
+de la placa para la que se dibujó la middleboard. El pin real de cada línea
+en el EP4CGX150 sale del pinout del Neptuno+. **Los cores hechos para el firmware de
 ZXMicroJack no lo oirán:** su sintetizador usa en esos pines otro formato que
 no es I2S (`audio_not_i2s.pio`). GP5 (AB7_OUT) no se usa, porque la entrada
 MIDI va por user_io.
@@ -146,6 +148,11 @@ MIDI va por user_io.
 
 El esquema de la middleboard (`edge2vgadb9midi`) confirma el mapa. GP25 va a
 `R19_PAL`, que en esta placa base es CONF_DONE.
+
+Los nombres de señal de la middleboard (V8, W9, AA8…) llevan el pin de FPGA
+de la placa para la que se diseñó, con encapsulado de 484 pines. **No son los
+pines del Neptuno+** (EP4CGX150DF27, 672 pines). Para asignar pines en un
+core hay que usar el pinout del Neptuno+.
 
 El mapa completo está en `include/Configuration.h`. Se ha sacado de
 mist-firmware-rp2040 (`drivers/pins.h`, objetivo `mistusb`).
