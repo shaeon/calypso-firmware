@@ -32,10 +32,11 @@ cambios. `src/FirmwareGuard.cxx` hace dos comprobaciones antes de cederle el
 control:
 
 - **Tamaño de la flash.** El actualizador original guarda la imagen nueva en
-  0x10800000, así que necesita una flash de 16 MB. Con una más pequeña esa
-  dirección cae encima del firmware en ejecución, y en ese caso la
-  actualización se rechaza. El tamaño real aparece en la consola de
-  depuración al arrancar, en la línea `Flash:`.
+  0x10800000, así que necesita una flash de 16 MB, que es la que lleva la
+  middleboard. Aun así se lee el tamaño real del chip y, si fuera más pequeño,
+  la actualización se rechaza, porque esa dirección caería encima del firmware
+  en ejecución. El tamaño aparece en la consola de depuración al arrancar, en
+  la línea `Flash:`.
 - **Placa.** Solo acepta ficheros cuya versión empieza por `NPP-`. Un
   `FIRMWARE.UPG` de Calypso se rechaza.
 
@@ -83,6 +84,7 @@ sin tocar:
 | `src/mist/buttons.cxx` | `src/buttons.cxx` | No hay botón en el lado del RP2040 |
 | `midireceiver.cxx`, `midi_processor.cxx`, `tap_processor.cxx` | `src/stubs.cxx` | Funciones no activadas en esta placa |
 | `src/mist/FirmwareUpdate.cxx` | se compila tal cual | Sus 3 funciones se renombran y `src/FirmwareGuard.cxx` las envuelve |
+| `src/mist/compat.c` | se compila tal cual | `mist_loop` se renombra y `src/CoreWatch.cxx` lo envuelve (ver más abajo) |
 | `src/main.cxx` | `src/main.cxx` | Objetos y pines de Neptuno+ |
 | `src/core/Configuration.h` | `include/Configuration.h` | Mapa de pines (tiene prioridad en el include path) |
 
@@ -90,10 +92,33 @@ Además, las librerías originales enlazan el driver de UART de stdio. Este
 `CMakeLists.txt` lo cambia por stdio sin UART, porque sus pines por defecto
 (GP0/GP1) son DCLK/DATA0.
 
+## Carga de cores por JTAG (USB Blaster)
+
+Al cargar un core por JTAG, `user_io_poll()` nota el cambio, marca "conservar
+el core" (`USB_LOAD_VAR`) y reinicia el RP2040 (`MCUReset`) en cuanto lee un
+identificador de core válido. Tras el reinicio, el firmware adopta el core que
+hay en la FPGA en vez de cargar el menú.
+
+**Fallo del firmware original que se corrige aquí.** Si al arrancar el tipo de
+core sale desconocido, `mist_loop()` pasa a `LEGACY_MODE` y deja de llamar a
+`user_io_poll()`. Desde ese momento nunca vuelve a leer el tipo de core, y el
+firmware se queda sin OSD y sin reaccionar. Al cargar por JTAG ocurre cuando
+el reinicio llega antes de que termine la carga: basta una lectura con ruido
+que parezca un identificador válido. Por eso unas veces funciona y otras no.
+
+`src/CoreWatch.cxx` envuelve `mist_loop()`. Mientras el core sea desconocido,
+lee el identificador cada 50 ms. Cuando ve un core MiST válido y estable
+durante medio segundo, hace lo mismo que el original: conserva el core y
+reinicia. En la consola de depuración aparecen los mensajes `CoreWatch:`.
+
 ## Pines
+
+El esquema de la middleboard (`edge2vgadb9midi`) confirma el mapa. GP25 va a
+`R19_PAL`, que en esta placa base es CONF_DONE.
 
 El mapa completo está en `include/Configuration.h`. Se ha sacado de
 mist-firmware-rp2040 (`drivers/pins.h`, objetivo `mistusb`).
+El RTC (MCP79410) cuelga de la FPGA (Y7/AB6), no del RP2040.
 
 Líneas compartidas con la FPGA: SD (GP6–9), PS/2 (GP11/12 y GP14/15),
 registro de joysticks (GP26–28) y bus MiST. Los cores MiST para Neptuno+ deben
@@ -105,8 +130,7 @@ dejar los pines de SD y PS/2 como entradas.
   USB y OSD.
 - Joysticks DB9: implementados, sin probar en la placa. Sin mandos de Mega
   Drive de 6 botones.
-- Carga de cores por JTAG (USB Blaster): el firmware reinicia el RP2040 y
-  conserva el core. DCLK/DATA0 se ponen a nivel bajo desde el arranque.
+- Carga de cores por JTAG (USB Blaster): ver la sección siguiente.
 - Pendiente:
   - MIDI: faltan los pines de audio y el tamaño de la flash.
   - Cinta: no hay ninguna línea libre hacia la FPGA.

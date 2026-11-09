@@ -21,6 +21,8 @@
 #   tap_processor.cxx            -> src/stubs.cxx      (features not enabled)
 #   src/mist/FirmwareUpdate.cxx     kept, entry points wrapped by
 #                                   src/FirmwareGuard.cxx (board + flash check)
+#   src/mist/compat.c               kept, mist_loop wrapped by src/CoreWatch.cxx
+#                                   (recover when no MiST core is recognised)
 #   src/main.cxx                 -> src/main.cxx
 #
 # If upstream renames or drops one of those files, configuration stops with
@@ -47,8 +49,8 @@ include(${CALYPSO_ROOT}/pico_extras_import.cmake)
 
 project(neptuno-plus-firmware)
 
-# Built for 2 MB, like an official Pico, until the flash part is confirmed
-set(PICO_FLASH_SIZE_BYTES 2097152 CACHE STRING "RP2040 XIP flash size" FORCE)
+# 16 MB flash, as on Calypso (confirmed for the Neptuno+ middleboard)
+set(PICO_FLASH_SIZE_BYTES 16777216 CACHE STRING "RP2040 XIP flash size" FORCE)
 
 # Optional transmit-only debug console on a PIO, e.g. -DNEPTUNO_DEBUG_UART_PIN=23
 set(NEPTUNO_DEBUG_UART_PIN "" CACHE STRING "GPIO for the PIO debug UART TX (empty = off)")
@@ -84,6 +86,17 @@ if (NOT EXISTS ${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx)
     message(FATAL_ERROR "Neptuno+ port: src/mist/FirmwareUpdate.cxx is gone. "
         "Upstream changed: review ports/neptuno_plus before building.")
 endif()
+# compat.c is built as it is, with mist_loop renamed so src/CoreWatch.cxx can
+# wrap it: upstream never leaves LEGACY_MODE once the core type is unknown,
+# which leaves the firmware dead after an unlucky JTAG load.
+if (NOT EXISTS ${UPSTREAM_SRC}/mist/compat.c)
+    message(FATAL_ERROR "Neptuno+ port: src/mist/compat.c is gone. "
+        "Upstream changed: review ports/neptuno_plus before building.")
+endif()
+set_source_files_properties(${UPSTREAM_SRC}/mist/compat.c
+    DIRECTORY ${UPSTREAM_SRC}/mist
+    PROPERTIES COMPILE_DEFINITIONS "mist_loop=upstream_mist_loop")
+
 set_source_files_properties(${UPSTREAM_SRC}/mist/FirmwareUpdate.cxx
     DIRECTORY ${UPSTREAM_SRC}/mist
     PROPERTIES COMPILE_DEFINITIONS
@@ -116,6 +129,7 @@ add_executable(${PROJECT_NAME}
     src/buttons.cxx
     src/stubs.cxx
     src/FirmwareGuard.cxx
+    src/CoreWatch.cxx
     src/ShiftRegisterJoystick.cxx
     src/PioUartStdio.cxx
 )
