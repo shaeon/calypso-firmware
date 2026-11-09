@@ -94,6 +94,23 @@ Además, las librerías originales enlazan el driver de UART de stdio. Este
 
 ## Carga de cores por JTAG (USB Blaster)
 
+**Forma recomendada: `JTAGMODE.RBF`**, igual que en el firmware de ZXMicroJack.
+
+1. Crea en la SD un fichero vacío (0 bytes) llamado `JTAGMODE.RBF`. En
+   Windows: `type nul > JTAGMODE.RBF`.
+2. Antes de cada carga por JTAG, selecciónalo en el menú como si fuera un core.
+3. El firmware resetea la FPGA, suelta DCLK/DATA0 y espera hasta 60 segundos.
+   Mientras tanto, carga el core desde Quartus.
+4. Cuando el core responde, el firmware lo detecta y lo inicializa como si lo
+   hubiera cargado él. Para cargar otro, vuelve a seleccionar `JTAGMODE.RBF`.
+
+Así la carga por JTAG empieza siempre con la FPGA recién reseteada y con el
+firmware quieto. Cualquier `.RBF` vacío sirve: un fichero de 0 bytes nunca es
+un core válido. En la consola de depuración aparecen los mensajes `JTAG mode:`.
+
+**Carga directa, sin `JTAGMODE.RBF`.** También funciona el mecanismo del MiST
+original:
+
 Al cargar un core por JTAG, `user_io_poll()` nota el cambio, marca "conservar
 el core" (`USB_LOAD_VAR`) y reinicia el RP2040 (`MCUReset`) en cuanto lee un
 identificador de core válido. Tras el reinicio, el firmware adopta el core que

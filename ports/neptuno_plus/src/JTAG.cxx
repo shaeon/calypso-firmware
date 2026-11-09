@@ -7,6 +7,12 @@
 // Cyclone IV in Passive Serial, so these methods implement that instead.
 // The constructor arguments are ignored; the pins come from Configuration.h.
 //
+// JTAG mode: selecting an empty RBF file (e.g. JTAGMODE.RBF, 0 bytes, as in
+// ZXMicroJack's firmware) resets the FPGA and leaves it waiting for a
+// configuration, releases DCLK/DATA0 and waits up to 60 s for a core loaded
+// through JTAG (USB Blaster). The JTAG load then always starts from a freshly
+// reset FPGA with the firmware idle. See jtagModeWait().
+//
 // Passive Serial: the RBF goes LSB first on DATA0, latched on the rising edge
 // of DCLK. There is no minimum DCLK frequency, only minimum setup, hold and
 // pulse widths, so a bit-banged loop is safe (a few tens of MHz at 250 MHz
@@ -18,6 +24,10 @@
 #include "hardware/structs/sio.h"
 #include "pico/time.h"
 #include <cstdio>
+
+extern "C" {
+#include "spi.h"
+}
 
 using namespace calypso;
 
@@ -130,7 +140,8 @@ void JTAG::programChunk(uint8_t *data, uint16_t length) {
 }
 
 void JTAG::programPostamble() {
-    if (s_error) return;
+    // An empty file is the JTAG mode request: no clocks into the waiting device
+    if (s_error || s_bytes == 0) return;
     // Keep clocking until CONF_DONE rises, then a few more cycles for the
     // device to leave initialisation and enter user mode
     uint32_t clocks = 0;
@@ -143,7 +154,59 @@ void JTAG::programPostamble() {
     }
 }
 
+namespace {
+    constexpr uint32_t JTAG_MODE_TIMEOUT_MS = 60000;
+    constexpr uint32_t JTAG_MODE_POLL_MS = 50;
+    constexpr int JTAG_MODE_STABLE_READS = 10;      // 0.5 s of a valid core id
+
+    // Waits for a core loaded through JTAG. Returns when a MiST core answers
+    // with a stable id (the upstream caller, fpga_init(), then detects and
+    // initialises it as usual) or after the timeout.
+    void jtagModeWait() {
+        // Same as ZXMicroJack's JTAGMODE: the device has just been reset by
+        // startProgram() and waits for data; DCLK and DATA0 are released.
+        gpio_init(DCLK);
+        gpio_init(DATA0);
+
+        printf("JTAG mode: FPGA reset, waiting up to %lu s for a core loaded through JTAG\n",
+            (unsigned long) (JTAG_MODE_TIMEOUT_MS / 1000));
+        printf("JTAG mode: nSTATUS=%d CONF_DONE=%d\n", gpio_get(NSTATUS), gpio_get(CONF_DONE));
+
+        const absolute_time_t deadline = make_timeout_time_ms(JTAG_MODE_TIMEOUT_MS);
+        int lastConfDone = gpio_get(CONF_DONE);
+        int validReads = 0;
+        unsigned char lastId = 0;
+        while (!time_reached(deadline)) {
+            sleep_ms(JTAG_MODE_POLL_MS);
+
+            const int confDone = gpio_get(CONF_DONE);
+            if (confDone != lastConfDone) {
+                printf("JTAG mode: CONF_DONE=%d\n", confDone);
+                lastConfDone = confDone;
+            }
+
+            EnableIO();
+            const unsigned char id = SPI(0xff);
+            DisableIO();
+            if ((id & 0xe0) == 0xa0 && (validReads == 0 || id == lastId)) {
+                lastId = id;
+                if (++validReads >= JTAG_MODE_STABLE_READS) {
+                    printf("JTAG mode: core found (id %02x)\n", id);
+                    return;
+                }
+            } else {
+                validReads = 0;
+            }
+        }
+        printf("JTAG mode: no core after %lu s\n", (unsigned long) (JTAG_MODE_TIMEOUT_MS / 1000));
+    }
+}
+
 void JTAG::endProgram() {
+    if (!s_error && s_bytes == 0) {
+        jtagModeWait();
+        return;
+    }
     const bool ok = !s_error && gpio_get(CONF_DONE) && gpio_get(NSTATUS);
     // DCLK and DATA0 must not float after configuration: leave them driven low
     gpio_put(DCLK, 0);
